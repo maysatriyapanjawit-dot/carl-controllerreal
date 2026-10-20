@@ -46,7 +46,7 @@ public final class CarlController implements ClientModInitializer {
             z = mc.player.getZ();
             send(mc, "kill @e[type=minecraft:block_display,tag=carl,limit=1]");
             send(mc, String.format(Locale.ROOT,
-                "summon minecraft:block_display %.2f %.2f %.2f {Tags:[\"carl\"],block_state:{Name:\"minecraft:coal_block\"}}",
+                "summon minecraft:block_display %.2f %.2f %.2f {Tags:[\"carl\"],block_state:{id:\"minecraft:coal_block\"}}",
                 x, y, z));
             spawned = true;
             mc.player.sendSystemMessage(Component.literal(
