@@ -1,65 +1,77 @@
 package com.example.carl;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.resources.Identifier;
 import java.util.Locale;
 
-/**
- * Single-player educational prop controller. Requires cheats / permission level 2.
- * It sends normal vanilla commands: no file access, networking, or native code.
- */
+/** Client-only educational prop controller; requires command permission. */
 public final class CarlController implements ClientModInitializer {
-    private boolean lastC, lastDelete;
-    private boolean spawned = false;
-    private int cooldown = 0;
+    private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
+        Identifier.fromNamespaceAndPath("carlcontroller", "controls"));
+    private static KeyMapping spawn, remove, left, right, forward, backward, up, down;
+    private boolean spawned;
+    private int cooldown;
     private double x, y, z;
 
-    @Override public void onInitializeClient() {
+    private static KeyMapping bind(String action, int key) {
+        return KeyMappingHelper.registerKeyMapping(new KeyMapping(
+            "key.carlcontroller." + action, InputConstants.Type.KEYBOARD, key, CATEGORY));
+    }
+
+    @Override
+    public void onInitializeClient() {
+        spawn = bind("spawn", InputConstants.KEY_C);
+        remove = bind("remove", InputConstants.KEY_DELETE);
+        left = bind("left", InputConstants.KEY_LEFT);
+        right = bind("right", InputConstants.KEY_RIGHT);
+        forward = bind("forward", InputConstants.KEY_UP);
+        backward = bind("backward", InputConstants.KEY_DOWN);
+        up = bind("up", InputConstants.KEY_PAGEUP);
+        down = bind("down", InputConstants.KEY_PAGEDOWN);
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
     }
 
     private void tick(Minecraft mc) {
-        if (mc.player == null || mc.level == null || mc.screen != null) {
-            lastC = false; lastDelete = false; return;
-        }
-        long window = mc.getWindow().getWindow();
-        boolean c = key(window, GLFW.GLFW_KEY_C);
-        boolean del = key(window, GLFW.GLFW_KEY_DELETE);
-        if (c && !lastC) {
-            // Put Carl ahead of the player at eye level, so filming is easy.
+        if (mc.player == null || mc.level == null || mc.gui.screen() != null) return;
+
+        if (spawn.consumeClick()) {
             x = mc.player.getX() + 2.0;
             y = mc.player.getY() + 1.0;
             z = mc.player.getZ();
             send(mc, "kill @e[type=minecraft:block_display,tag=carl,limit=1]");
             send(mc, String.format(Locale.ROOT,
-                "summon minecraft:block_display %.2f %.2f %.2f {Tags:[\"carl\"],block_state:{Name:\"minecraft:coal_block\"}}", x,y,z));
+                "summon minecraft:block_display %.2f %.2f %.2f {Tags:[\"carl\"],block_state:{Name:\"minecraft:coal_block\"}}",
+                x, y, z));
             spawned = true;
-            mc.player.sendSystemMessage(Component.literal("Carl spawned! Arrows: move | Page Up/Down: height | Delete: remove"));
+            mc.player.sendSystemMessage(Component.literal(
+                "Carl spawned! Arrow keys: move; Page Up/Down: height; Delete: remove"));
         }
-        if (del && !lastDelete) {
+        if (remove.consumeClick()) {
             send(mc, "kill @e[type=minecraft:block_display,tag=carl,limit=1]");
             spawned = false;
         }
-        lastC = c; lastDelete = del;
-        if (!spawned) return;
-        if (cooldown-- > 0) return;
+        if (!spawned || cooldown-- > 0) return;
         double step = 0.25;
         boolean moved = false;
-        if (key(window,GLFW.GLFW_KEY_LEFT)) { x -= step; moved = true; }
-        if (key(window,GLFW.GLFW_KEY_RIGHT)) { x += step; moved = true; }
-        if (key(window,GLFW.GLFW_KEY_UP)) { z -= step; moved = true; }
-        if (key(window,GLFW.GLFW_KEY_DOWN)) { z += step; moved = true; }
-        if (key(window,GLFW.GLFW_KEY_PAGE_UP)) { y += step; moved = true; }
-        if (key(window,GLFW.GLFW_KEY_PAGE_DOWN)) { y -= step; moved = true; }
+        if (left.isDown()) { x -= step; moved = true; }
+        if (right.isDown()) { x += step; moved = true; }
+        if (forward.isDown()) { z -= step; moved = true; }
+        if (backward.isDown()) { z += step; moved = true; }
+        if (up.isDown()) { y += step; moved = true; }
+        if (down.isDown()) { y -= step; moved = true; }
         if (moved) {
             send(mc, String.format(Locale.ROOT,
-               "tp @e[type=minecraft:block_display,tag=carl,limit=1] %.2f %.2f %.2f",x,y,z));
-            cooldown = 2; // limit packets/commands while held
+                "tp @e[type=minecraft:block_display,tag=carl,limit=1] %.2f %.2f %.2f", x, y, z));
+            cooldown = 2;
         }
     }
-    private static boolean key(long w, int code) { return GLFW.glfwGetKey(w,code) == GLFW.GLFW_PRESS; }
-    private static void send(Minecraft mc,String command) { mc.player.connection.sendCommand(command); }
+    private static void send(Minecraft mc, String cmd) {
+        mc.player.connection.sendCommand(cmd);
+    }
 }
