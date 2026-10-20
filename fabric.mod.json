@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "carlcontroller",
+  "version": "${version}",
+  "name": "Carl Controller",
+  "description": "Arrow-key controller for Carl the smiling coal block in Minecraft 26.3. Single-player with cheats enabled.",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.example.carl.CarlController"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
